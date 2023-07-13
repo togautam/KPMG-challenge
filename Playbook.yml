@@ -1,0 +1,139 @@
+---
+- name: Provision 3-tier architecture in Azure
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Create resource group
+      azure_rm_resourcegroup:
+        name: myResourceGroup
+        location: eastus
+
+    - name: Create virtual network
+      azure_rm_virtualnetwork:
+        resource_group: myResourceGroup
+        name: myVirtualNetwork
+        address_prefixes_cidr: "10.0.0.0/16"
+        dns_servers: "10.0.0.4"
+        state: present
+
+    - name: Create subnet
+      azure_rm_subnet:
+        resource_group: myResourceGroup
+        name: webTierSubnet
+        virtual_network: myVirtualNetwork
+        address_prefix_cidr: "10.0.1.0/24"
+        state: present
+
+    - name: Create network security group for web tier
+      azure_rm_securitygroup:
+        resource_group: myResourceGroup
+        name: webTierNSG
+        rules:
+          - name: AllowHTTP
+            protocol: Tcp
+            destination_port_range: 80
+            access: Allow
+            priority: 100
+            direction: Inbound
+          - name: AllowSSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 200
+            direction: Inbound
+        state: present
+
+    - name: Create network security group for app tier
+      azure_rm_securitygroup:
+        resource_group: myResourceGroup
+        name: appTierNSG
+        rules:
+          - name: AllowAppTraffic
+            protocol: Tcp
+            destination_port_range: 8080
+            access: Allow
+            priority: 100
+            direction: Inbound
+          - name: AllowSSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 200
+            direction: Inbound
+        state: present
+
+    - name: Create network security group for db tier
+      azure_rm_securitygroup:
+        resource_group: myResourceGroup
+        name: dbTierNSG
+        rules:
+          - name: AllowDBTraffic
+            protocol: Tcp
+            destination_port_range: 1433
+            access: Allow
+            priority: 100
+            direction: Inbound
+          - name: AllowSSH
+            protocol: Tcp
+            destination_port_range: 22
+            access: Allow
+            priority: 200
+            direction: Inbound
+        state: present
+
+    - name: Create virtual machine for web tier
+      azure_rm_virtualmachine:
+        resource_group: myResourceGroup
+        name: webTierVM
+        vm_size: Standard_DS2_v2
+        admin_username: myAdminUser
+        admin_password: myAdminPassword
+        image:
+          offer: CentOS
+          publisher: OpenLogic
+          sku: '7.8'
+          version: latest
+        virtual_network: myVirtualNetwork
+        subnet_name: webTierSubnet
+        os_disk_caching: ReadWrite
+        os_disk_size_gb: 128
+        network_security_group: webTierNSG
+        state: present
+
+    - name: Create virtual machine for app tier
+      azure_rm_virtualmachine:
+        resource_group: myResourceGroup
+        name: appTierVM
+        vm_size: Standard_DS2_v2
+        admin_username: myAdminUser
+        admin_password: myAdminPassword
+        image:
+          offer: CentOS
+          publisher: OpenLogic
+          sku: '7.8'
+          version: latest
+        virtual_network: myVirtualNetwork
+        subnet_name: webTierSubnet
+        os_disk_caching: ReadWrite
+        os_disk_size_gb: 128
+        network_security_group: appTierNSG
+        state: present
+
+    - name: Create virtual machine for db tier
+      azure_rm_virtualmachine:
+        resource_group: myResourceGroup
+        name: dbTierVM
+        vm_size: Standard_DS2_v2
+        admin_username: myAdminUser
+        admin_password: myAdminPassword
+        image:
+          offer: CentOS
+          publisher: OpenLogic
+          sku: '7.8'
+          version: latest
+        virtual_network: myVirtualNetwork
+        subnet_name: webTierSubnet
+        os_disk_caching: ReadWrite
+        os_disk_size_gb: 128
+        network_security_group: dbTierNSG
+        state: present
